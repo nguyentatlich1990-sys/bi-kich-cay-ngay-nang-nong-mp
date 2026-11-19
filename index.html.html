@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tưới cây đúng lịch và quên tưới</title>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3ede2;--bar:#ddd3c0;--ink:#4a3b2a;--accent:#b8552e;--line:#b5a78e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1f1a15;--bar:#3a3228;--ink:#e8dcc8;--line:#6b5d4a}}
+:root[data-theme="dark"]{--bg:#1f1a15;--bar:#3a3228;--ink:#e8dcc8;--line:#6b5d4a}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Be Vietnam Pro",system-ui,"Segoe UI",sans-serif;padding:14px}
+.wrap{max-width:1200px;margin:0 auto}
+svg{width:100%;height:auto;display:block;border-radius:16px;cursor:pointer}
+.bar{display:flex;align-items:center;gap:12px;background:var(--bar);padding:10px 12px;border-radius:14px;margin-top:12px}
+button{font:inherit;font-weight:700;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:10px;padding:9px 14px;cursor:pointer}
+#play{background:var(--accent);color:#fff;border-color:var(--accent);min-width:104px}
+input[type=range]{flex:1;accent-color:var(--accent)}
+#tm{font-size:14px;min-width:84px;text-align:right}
+button:focus-visible,input:focus-visible{outline:3px solid #3b82f6;outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<svg id="svg" viewBox="0 0 1200 680" role="img" aria-label="So sánh hai chậu cây: một chậu tưới đúng lịch, một chậu quên tưới"></svg>
+<div class="bar">
+<button id="play">▶ Phát</button>
+<button id="rs" aria-label="Phát lại">↺</button>
+<input id="rg" type="range" min="0" max="80" step="0.01" value="0" aria-label="Thời gian">
+<button id="mu" aria-label="Bật hoặc tắt âm thanh">🔊</button>
+<span id="tm">0:00 / 1:20</span>
+</div>
+</div>
+<script>
+const NS='http://www.w3.org/2000/svg',S=document.getElementById('svg'),DUR=80;
+const E=(tag,a,p)=>{const e=document.createElementNS(NS,tag);for(const k in a)e.setAttribute(k,a[k]);(p||S).appendChild(e);return e};
+const cl=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));
+const hx=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const mix=(a,b,t)=>{const x=hx(a),y=hx(b);t=cl(t);return 'rgb('+x.map((v,i)=>Math.round(v+(y[i]-v)*t)).join(',')+')'};
+const POS=[0,.45,.85,1];
+const kf=(arr,f)=>{for(let i=0;i<3;i++)if(f<=POS[i+1])return mix(arr[i],arr[i+1],(f-POS[i])/(POS[i+1]-POS[i]));return arr[3]};
+const SKYT=['#f4b57f','#5fb3ee','#e8845f','#2e2a52'],SKYB=['#fde7b8','#d4efff','#ffc48c','#5a456b'],BLD=['#c39a7c','#8fb0cc','#8c5b66','#2a2442'],SUNC=['#ffd27a','#fff2a8','#ff8a4a','#ff6a3a'];
+
+S.innerHTML='<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop id="s1" offset="0"/><stop id="s2" offset="1"/></linearGradient><radialGradient id="glow"><stop offset="0" stop-color="#fff6c8" stop-opacity=".85"/><stop offset="1" stop-color="#fff6c8" stop-opacity="0"/></radialGradient><linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2616"/><stop offset="1" stop-color="#1b110a"/></linearGradient><clipPath id="sc"><polygon points="-92,407 92,407 65,538 -65,538"/></clipPath></defs>';
+const s1=document.getElementById('s1'),s2=document.getElementById('s2');
+E('rect',{width:1200,height:680,fill:'url(#sky)'});
+const glow=E('circle',{r:130,fill:'url(#glow)'}),sun=E('circle',{r:40});
+const clouds=[[60,95,1],[500,60,.8],[820,130,1.2]].map(([x,y,s])=>{const g=E('g',{fill:'#fff'});E('ellipse',{cx:0,cy:0,rx:60*s,ry:18*s},g);E('ellipse',{cx:-28*s,cy:6*s,rx:34*s,ry:14*s},g);E('ellipse',{cx:30*s,cy:5*s,rx:38*s,ry:15*s},g);return{g,x,y}});
+const birds=[0,1,2].map(i=>E('path',{d:'M-11,0 Q-5,-9 0,0 Q5,-9 11,0',fill:'none','stroke-width':2.2,'stroke-linecap':'round'}));
+const blds=[[0,75,75],[95,75,152],[190,70,132],[310,70,125],[475,72,175],[570,75,165],[665,75,155],[760,72,170],[970,55,135],[1045,75,86],[1140,60,168]].map(([x,w,h])=>E('rect',{x,y:550-h,width:w,height:h}));
+E('rect',{y:550,width:1200,height:130,fill:'url(#gr)'});
+E('rect',{y:549,width:1200,height:4,fill:'#5a3d26'});
+
+function mkPot(cx,title){
+ const g=E('g',{transform:`translate(${cx},0)`});
+ const soil=E('polygon',{points:'-92,407 92,407 65,538 -65,538'},g);
+ const rootG=E('g',{'clip-path':'url(#sc)'},g);
+ const roots=E('g',{fill:'none','stroke-width':3,'stroke-linecap':'round'},rootG);
+ [-62,-44,-28,-12,6,22,40,58].forEach(dx=>{E('path',{d:`M0,409 C${dx*.1},450 ${dx*.9},470 ${dx},528`},roots);const s=dx>0?1:-1;E('path',{d:`M${dx*.45},470 q${14*s},10 ${20*s},34`,'stroke-width':2},roots)});
+ const cr=E('g',{fill:'none',stroke:'#d9b98a','stroke-width':2.5,'stroke-linecap':'round','stroke-linejoin':'round','clip-path':'url(#sc)'},g);
+ ['M-40,410 l6,30 l-8,26 l9,34','M30,410 l-5,40 l9,30 l-6,28','M-10,440 l-14,20 l6,24','M55,430 l-10,34','M-92,407 L-65,538','M92,407 L65,538'].forEach(d=>E('path',{d},cr));
+ const wet=E('rect',{x:-92,y:407,width:184,height:0,fill:'#4f86c6','clip-path':'url(#sc)'},g);
+ E('path',{d:'M-105,407 L105,407 L72,548 L-72,548Z M-92,407 L92,407 L65,538 L-65,538Z','fill-rule':'evenodd',fill:'#8a3f22'},g);
+ E('rect',{x:-115,y:388,width:230,height:19,rx:6,fill:'#a24a28'},g);
+ E('rect',{x:-115,y:388,width:230,height:5,rx:3,fill:'#c0663f',opacity:.6},g);
+ E('text',{x:cx,y:574,'text-anchor':'middle','font-size':18,'font-weight':700,fill:'#f1e3c8'}).textContent=title;
+ E('rect',{x:cx-125,y:588,width:250,height:12,rx:6,fill:'#120a05',opacity:.75});
+ const fill=E('rect',{x:cx-125,y:588,height:12,rx:6});
+ const info=E('text',{x:cx,y:620,'text-anchor':'middle','font-size':14,fill:'#d9c8a8'});
+ return{soil,roots,cr,wet,fill,info,cx};
+}
+function mkPlant(cx,leafDefs){
+ const g=E('g',{transform:`translate(${cx},407)`});
+ const stem=E('path',{fill:'none','stroke-width':7,'stroke-linecap':'round'},g);
+ const leaves=leafDefs.map((d,i)=>{const lg=E('g',{},g);const p=E('path',{d:'M0,0 C10,-15 34,-15 48,0 C34,14 10,14 0,0Z','stroke-width':1.2},lg);const v=E('path',{d:'M2,0 L40,0',fill:'none','stroke-width':1,opacity:.45},lg);return{...d,lg,p,v,ph:i*1.7}});
+ const fl=E('g',{},g);for(let i=0;i<6;i++)E('ellipse',{cx:13,cy:0,rx:11,ry:5.5,fill:'#ff6fa8',transform:`rotate(${i*60})`},fl);E('circle',{r:5.5,fill:'#ffd44d'},fl);
+ return{g,stem,leaves,fl};
+}
+const L0=-1;
+const defA=[[.18,-1,L0],[.22,1,L0],[.38,-1,L0],[.42,1,L0],[.58,-1,L0],[.62,1,L0],[.78,-1,L0],[.82,1,L0],[1,1,L0,1],[.3,1,.2],[.5,-1,.45],[.7,1,.7]].map(([tt,side,th,top])=>({tt,side,th,top}));
+const defB=defA.slice(0,9);
+const CXA=200,CXB=600,CXC=1000;
+const potA=mkPot(CXA,'Chậu A · tưới theo lịch cố định'),potB=mkPot(CXB,'Chậu B · quên tưới'),potC=mkPot(CXC,'Chậu C · tưới liên tục');
+const dust=[...Array(7)].map(()=>E('circle',{r:2.5,fill:'#cdb48a'}));
+const plA=mkPlant(CXA,defA),plB=mkPlant(CXB,defB),plC=mkPlant(CXC,defB);
+
+function updPlant(P,p,d,t,bloom,sway,col){
+ const H=(150+70*p)*(1-.28*d),bend=d*62+sway,Cx=bend*.1,Cy=-H*.55;
+ P.stem.setAttribute('d',`M0,0 Q${Cx},${Cy} ${bend},${-H}`);
+ P.stem.setAttribute('stroke',mix('#2d6b36','#7a6b34',d));
+ const lc=d<.5?mix(col,'#c8b23c',d/.5):mix('#c8b23c','#7c5a2c',(d-.5)/.5);
+ const lo=mix('#1d4a25','#4a3418',d);
+ P.leaves.forEach(L=>{
+  const q=L.tt,x=2*(1-q)*q*Cx+q*q*bend,y=2*(1-q)*q*Cy+q*q*-H;
+  const sc=cl((p-L.th)/.1)*(1+.25*p)*(1-.4*d)*(L.top?.9:1);
+  const a0=L.top?-88:-35-q*32;
+  const a=a0+d*(L.top?60:100+(1-q)*15)+Math.sin(t*2.1+L.ph)*4*(1-d*.7);
+  L.lg.setAttribute('transform',`translate(${x},${y}) scale(${L.side*sc},${sc}) rotate(${a})`);
+  L.lg.setAttribute('opacity',sc>.01?1:0);
+  L.p.setAttribute('fill',lc);L.p.setAttribute('stroke',lo);L.v.setAttribute('stroke',lo);
+ });
+ P.fl.setAttribute('transform',`translate(${bend},${-H-6}) scale(${bloom}) rotate(${t*20})`);
+ P.fl.setAttribute('opacity',bloom>.02?1:0);
+}
+
+const hud=E('rect',{x:18,y:20,width:330,height:48,rx:14,fill:'#000',opacity:.38});
+const hudT=E('text',{x:34,y:51,'font-size':19,'font-weight':700,fill:'#fff'});
+const capT=E('text',{x:600,y:658,'text-anchor':'middle','font-size':19,'font-weight':700,fill:'#f6e9d0'});
+function bubble(x,y,w,txt){const g=E('g',{opacity:0});E('rect',{x:-w/2,y:-20,width:w,height:36,rx:18,fill:'#fff',opacity:.92},g);E('path',{d:'M-8,15 L-14,28 L6,15Z',fill:'#fff',opacity:.92},g);E('text',{'text-anchor':'middle',y:4,'font-size':15,'font-weight':700,fill:'#4a3b2a'},g).textContent=txt;g.setAttribute('data-p',x+','+y);return g}
+const bA=bubble(0,0,170,'⏰ Đến giờ tưới!'),bB=bubble(0,0,150,'💤 Quên mất…'),bB2=bubble(0,0,150,'😢 Khát quá…'),bC=bubble(0,0,170,'💦 Tưới thêm nữa!');
+const can=E('g',{opacity:0});
+E('rect',{x:0,y:0,width:44,height:34,rx:7,fill:'#5b8fb9'},can);E('path',{d:'M44,8 L72,-6 L77,-1 L46,24Z',fill:'#4a7aa3'},can);E('path',{d:'M2,6 C-18,-6 -18,30 2,26',fill:'none',stroke:'#4a7aa3','stroke-width':5},can);E('rect',{x:6,y:6,width:8,height:22,rx:4,fill:'#fff',opacity:.3},can);
+const drops=[...Array(8)].map(()=>E('circle',{r:3.5,fill:'#6db6ff'}));
+const canC=E('g',{opacity:0});E('rect',{x:0,y:0,width:44,height:34,rx:7,fill:'#5b8fb9'},canC);E('path',{d:'M44,8 L72,-6 L77,-1 L46,24Z',fill:'#4a7aa3'},canC);E('path',{d:'M2,6 C-18,-6 -18,30 2,26',fill:'none',stroke:'#4a7aa3','stroke-width':5},canC);
+const dropsC=[...Array(10)].map(()=>E('circle',{r:3.5,fill:'#6db6ff'}));
+const splashC=E('ellipse',{rx:16,ry:4,fill:'#bfe0ff',opacity:0});
+const bubs=[...Array(6)].map(()=>E('circle',{r:3,fill:'none',stroke:'#cfe8ff','stroke-width':1.5}));
+const mold=E('g',{fill:'#d8d4c4',opacity:0});[[-40,420],[30,445],[-15,470],[45,500],[-45,505]].forEach(([x,y])=>E('circle',{cx:CXC+x,cy:y,r:5},mold));
+const splash=E('ellipse',{rx:16,ry:4,fill:'#bfe0ff',opacity:0});
+const sumG=E('g',{opacity:0});
+E('rect',{x:250,y:78,width:700,height:158,rx:18,fill:'#000',opacity:.62},sumG);
+E('text',{x:600,y:113,'text-anchor':'middle','font-size':20,'font-weight':700,fill:'#fff'},sumG).textContent='Kết quả sau 8 ngày';
+E('text',{x:600,y:146,'text-anchor':'middle','font-size':15,fill:'#cdeccb'},sumG).textContent='Chậu A: đất ẩm ổn định, cây khỏe, ra lá mới và nở hoa 🌸';
+E('text',{x:600,y:174,'text-anchor':'middle','font-size':15,fill:'#f4c9a0'},sumG).textContent='Chậu B: thiếu nước, đất khô nứt, rễ co lại, lá vàng và rũ 🥀';
+E('text',{x:600,y:202,'text-anchor':'middle','font-size':15,fill:'#a9d3f5'},sumG).textContent='Chậu C: thừa nước, rễ thối, đất úng, cũng héo như chậu B 🤢';
+const ov=E('g',{});E('rect',{width:1200,height:680,fill:'#000',opacity:.38},ov);E('circle',{cx:600,cy:340,r:52,fill:'#000',opacity:.6},ov);E('path',{d:'M584,314 L584,366 L628,340Z',fill:'#fff'},ov);
+
+const EV=[[0,'Cả ba chậu cùng khỏe mạnh, đất ẩm 65%'],[2,'Chậu A tưới đúng giờ, chậu C được tưới liên tục 💧'],[9,'Chậu C đã ướt sũng 100% nhưng vẫn bị tưới tiếp…'],[12,'Ngày 2: chậu B vẫn chưa được tưới…'],[22,'Chậu C úng nước, rễ bắt đầu thối 🤢'],[26,'Đất chậu B khô, lá hơi rũ xuống'],[36,'Ngày 4: B héo vì thiếu nước, C héo vì thừa nước'],[48,'Đất B khô hoàn toàn, rễ B co lại'],[60,'Chậu A ra lá mới và nụ hoa 🌸'],[72,'B và C đều ngả vàng: thiếu hay thừa nước đều hại cây']];
+const mCol=m=>m>88?'#3d8fd6':m<35?mix('#c0392b','#e0a030',m/35):mix('#e0a030','#4caf50',(m-35)/30);
+const pad=n=>String(n).padStart(2,'0');
+
+function render(t){
+ const dd=Math.min(7,Math.floor(t/10)),u=t-dd*10,f=u/10,h=6+f*14,hh=Math.floor(h),mm=Math.floor((h-hh)*60);
+ s1.setAttribute('stop-color',kf(SKYT,f));s2.setAttribute('stop-color',kf(SKYB,f));
+ const sx=90+f*1020,sy=470-Math.sin(Math.PI*f)*330,sc=kf(SUNC,f);
+ sun.setAttribute('cx',sx);sun.setAttribute('cy',sy);sun.setAttribute('fill',sc);sun.setAttribute('r',40+Math.sin(t*3)*1.5);
+ glow.setAttribute('cx',sx);glow.setAttribute('cy',sy);glow.setAttribute('opacity',cl(1.2-f*.8));
+ clouds.forEach((c,i)=>{c.g.setAttribute('transform',`translate(${((c.x+t*(7+i*3))%1500)-150},${c.y})`);c.g.setAttribute('opacity',cl(.65-Math.max(0,f-.7)*1.6))});
+ birds.forEach((b,i)=>{const x=((t*55+i*260)%1400)-100;b.setAttribute('transform',`translate(${x},${150+i*38+Math.sin(t*2+i)*10}) scale(1,${.6+Math.abs(Math.sin(t*7+i))*.7})`);b.setAttribute('stroke',kf(BLD,f));b.setAttribute('opacity',f<.8?.8:0)});
+ blds.forEach(b=>b.setAttribute('fill',kf(BLD,f)));
+
+ const mA=(u>=2&&u<3)?60+25*(u-2):85-25*(((u-3+10)%10)/9);
+ const mB=Math.max(0,65-65*t/48);
+ const dB=cl((t-25.85)/45),hB=Math.round(100-85*dB);
+ const pA=t/80,pB=Math.min(t,22)/80*.8;
+ const dA=.04*Math.sin(Math.PI*f);
+ const mC=Math.min(100,65+t*6),dC=cl((t-18)/58),hC=Math.round(100-85*dC),tiltC=cl(t/.8)*(.9+.1*Math.sin(t*1.3));
+ const swayA=Math.sin(t*1.6)*3,swayB=Math.sin(t*1.6+1)*3*(1-dB);
+
+ const tilt=u<1.6?0:u<2.2?(u-1.6)/.6:u<3.1?1:u<3.7?1-(u-3.1)/.6:0;
+ can.setAttribute('transform',`translate(${CXA-165},275) rotate(${tilt*28})`);can.setAttribute('opacity',cl(tilt*2));
+ drops.forEach((d,i)=>{const ph=(u*2.4+i/8)%1,on=tilt>.85&&u<3.2;d.setAttribute('cx',CXA-98+ph*7+(i%3)*3);d.setAttribute('cy',302+ph*ph*103);d.setAttribute('opacity',on?1:0)});
+ const sp=tilt>.85&&u<3.2;splash.setAttribute('cx',CXA-90);splash.setAttribute('cy',406);splash.setAttribute('rx',10+Math.abs(Math.sin(t*14))*10);splash.setAttribute('opacity',sp?.7:0);
+
+ const wh=cl((u-2.3)/2.2)*130,wo=.35*cl((u-2.3)/.5)*cl((5.5-u)/2.5);
+ potA.wet.setAttribute('height',wh);potA.wet.setAttribute('opacity',wo);
+
+ potA.soil.setAttribute('fill',mix('#8b6a45','#2a190f',mA/75));
+ potB.soil.setAttribute('fill',mix('#8b6a45','#2a190f',mB/75));
+ potA.cr.setAttribute('opacity',0);potB.cr.setAttribute('opacity',cl((32-mB)/32));
+ const rs=`translate(0,409) scale(1,${(.92+.22*pA).toFixed(3)}) translate(0,-409)`;
+ potA.roots.setAttribute('transform',rs);potA.roots.setAttribute('stroke','#d9ccb4');
+ potB.roots.setAttribute('transform',`translate(0,409) scale(${1-.25*dB},${1-.42*dB}) translate(0,-409)`);potB.roots.setAttribute('stroke',mix('#d9ccb4','#8a6a4a',dB));
+ potA.fill.setAttribute('width',250*mA/100);potA.fill.setAttribute('fill',mCol(mA));
+ potB.fill.setAttribute('width',Math.max(0,250*mB/100));potB.fill.setAttribute('fill',mCol(mB));
+ potA.info.textContent=`Độ ẩm đất ${Math.round(mA)}% · sức khỏe 100%`;
+ potB.info.textContent=`Độ ẩm đất ${Math.round(mB)}% · sức khỏe ${hB}%`;
+ potC.soil.setAttribute('fill','#1e120a');potC.cr.setAttribute('opacity',0);
+ potC.roots.setAttribute('transform',`translate(0,409) scale(${1-.2*dC},${1-.35*dC}) translate(0,-409)`);potC.roots.setAttribute('stroke',mix('#d9ccb4','#3b2a1c',dC*1.3));
+ potC.fill.setAttribute('width',250*mC/100);potC.fill.setAttribute('fill',mCol(mC));
+ potC.info.textContent=`Độ ẩm đất ${Math.round(mC)}% · sức khỏe ${hC}%`;
+ potC.wet.setAttribute('height',cl(t/10)*131);potC.wet.setAttribute('opacity',.5);
+ canC.setAttribute('transform',`translate(${CXC-165},275) rotate(${tiltC*28})`);canC.setAttribute('opacity',cl(tiltC*2));
+ dropsC.forEach((d,i)=>{const ph=(t*2.6+i/10)%1;d.setAttribute('cx',CXC-98+ph*7+(i%3)*3);d.setAttribute('cy',302+ph*ph*103);d.setAttribute('opacity',tiltC>.85?1:0)});
+ splashC.setAttribute('cx',CXC-90);splashC.setAttribute('cy',406);splashC.setAttribute('rx',10+Math.abs(Math.sin(t*14))*10);splashC.setAttribute('opacity',tiltC>.85?.7:0);
+ bubs.forEach((b,i)=>{const q=(t*.5+i/6)%1;b.setAttribute('cx',CXC-50+i*20+Math.sin(t*3+i)*4);b.setAttribute('cy',530-q*110);b.setAttribute('opacity',cl(t/12)*(1-q))});
+ mold.setAttribute('opacity',cl(dC*2));
+
+ updPlant(plA,pA,dA,t,cl((t-58)/10),swayA,'#3fa653');
+ updPlant(plB,pB,dB,t,0,swayB,'#3fa653');
+ updPlant(plC,pB,dC,t,0,Math.sin(t*1.6+2)*3*(1-dC),'#3fa653');
+
+ dust.forEach((d,i)=>{const q=((t*.9+i/7)%1),on=mB<15;d.setAttribute('cx',CXB-85+i*28+Math.sin(t*3+i)*8);d.setAttribute('cy',398-q*50);d.setAttribute('opacity',on?.55*(1-q):0)});
+
+ const put=(b,x,y,on)=>{b.setAttribute('transform',`translate(${x},${y})`);b.setAttribute('opacity',on?1:0)};
+ put(bA,CXA+150,300,u>1&&u<2.2);
+ put(bB,CXB+120,300,dd>=1&&u>1.5&&u<3.2);
+ put(bB2,CXB+120,300,mB<10&&u>5&&u<7);
+ put(bC,CXC+100,300,u>5.5&&u<7.5);bC.lastChild.textContent=dC<.2?'💦 Tưới thêm nữa!':'🤢 Ngộp quá…';
+
+ hudT.textContent=`Ngày ${dd+1} · ${pad(hh)}:${pad(mm)} · ${Math.round(31+6*Math.sin(Math.PI*f))}°C`;
+ let cap='';EV.forEach(e=>{if(t>=e[0])cap=e[1]});capT.textContent=cap;
+ sumG.setAttribute('opacity',t>=79.9?1:0);
+ ov.setAttribute('opacity',(!playing&&t<.05)?1:0);
+ const m=Math.floor(t),tm=`${Math.floor(m/60)}:${pad(m%60)} / 1:20`;
+ document.getElementById('tm').textContent=tm;rg.value=t;audioUpdate(tilt+tiltC*.85,f);
+}
+
+let AC=null,master,wGain,mute=false;
+function initAudio(){if(AC)return;try{AC=new(window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=mute?0:1;master.connect(AC.destination);
+ const buf=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate),d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+ const src=AC.createBufferSource();src.buffer=buf;src.loop=true;const bp=AC.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1900;bp.Q.value=.6;wGain=AC.createGain();wGain.gain.value=0;src.connect(bp);bp.connect(wGain);wGain.connect(master);src.start()}catch(e){AC=null}}
+function blip(f0,f1,len,vol,type){const n=AC.currentTime+.01,o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.setValueAtTime(f0,n);o.frequency.exponentialRampToValueAtTime(f1,n+len*.5);o.frequency.exponentialRampToValueAtTime(f0*.9,n+len);g.gain.setValueAtTime(0,n);g.gain.linearRampToValueAtTime(vol,n+.015);g.gain.exponentialRampToValueAtTime(.001,n+len);o.connect(g);g.connect(master);o.start(n);o.stop(n+len+.02)}
+function chirp(){const k=2+Math.floor(Math.random()*3),b=2200+Math.random()*1800;for(let i=0;i<k;i++)setTimeout(()=>{if(AC&&!mute&&playing)blip(b*(1+Math.random()*.3),b*1.4,.12,.05)},i*150)}
+function audioUpdate(w,f){if(!AC)return;wGain.gain.setTargetAtTime(playing?Math.min(1.5,w)*.1:0,AC.currentTime,.08);if(!playing)return;if(f<.85&&Math.random()<.005)chirp();if(w>.3&&Math.random()<.12)blip(700+Math.random()*900,1500+Math.random()*700,.07,.03)}
+document.getElementById('mu').onclick=function(){mute=!mute;this.textContent=mute?'🔇':'🔊';if(master)master.gain.value=mute?0:1};
+const rg=document.getElementById('rg'),pb=document.getElementById('play');
+let t=0,playing=false,last=performance.now();
+function setPlay(v){playing=v;pb.textContent=v?'⏸ Tạm dừng':'▶ Phát'}
+pb.onclick=()=>{initAudio();if(AC&&AC.state==='suspended')AC.resume();if(!playing&&t>=DUR)t=0;setPlay(!playing)};
+document.getElementById('rs').onclick=()=>{t=0;setPlay(false);render(t)};
+S.onclick=()=>pb.click();
+rg.oninput=()=>{t=+rg.value;render(t)};
+function tick(n){const dt=Math.min(.1,(n-last)/1000);last=n;if(playing){t+=dt;if(t>=DUR){t=DUR;setPlay(false)}}render(t);requestAnimationFrame(tick)}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
